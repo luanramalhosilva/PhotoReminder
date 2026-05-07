@@ -14,10 +14,14 @@ export async function GET() {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar fotos ordenadas pelas mais recentes
+    // Buscar fotos com curtidas e comentários
     const { data: photos, error } = await supabase
       .from('photos')
-      .select('*')
+      .select(`
+        *,
+        likes:likes(guest_email),
+        comments:comments(*)
+      `)
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -26,12 +30,15 @@ export async function GET() {
     }
 
     // Formatando para o formato que o frontend espera
-    const formattedPhotos = photos.map((photo) => ({
+    const formattedPhotos = photos.map((photo: any) => ({
       id: photo.id,
       name: photo.guest_name,
       guest_image: photo.guest_image,
       url: photo.url,
+      media_type: photo.media_type || 'image',
       createdAt: photo.created_at,
+      likes: photo.likes || [],
+      comments: photo.comments || []
     }));
 
     return NextResponse.json({ photos: formattedPhotos });
