@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -41,11 +41,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const publicUrl = publicUrlData.publicUrl;
 
+    const guestImage = searchParams.get('guestImage') || '';
+
     // Salvar no banco de dados
     const { error: dbError } = await supabase
       .from('photos')
       .insert([
-        { url: publicUrl, guest_name: guestName }
+        { url: publicUrl, guest_name: guestName, guest_image: guestImage }
       ]);
 
     if (dbError) {
