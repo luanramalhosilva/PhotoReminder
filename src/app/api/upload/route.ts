@@ -6,8 +6,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
     let supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
     
-    // Remove possíveis aspas duplicadas que o usuário pode ter colocado na Vercel
-    supabaseUrl = supabaseUrl.replace(/^"|"$/g, '').trim();
+    // Remove possíveis aspas duplicadas e o /rest/v1 que o usuário pode ter colocado
+    supabaseUrl = supabaseUrl.replace(/^"|"$/g, '').replace(/\/rest\/v1\/?$/, '').trim();
     supabaseKey = supabaseKey.replace(/^"|"$/g, '').trim();
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -60,9 +60,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, url: publicUrl });
   } catch (error: any) {
-    console.error("Erro no upload para o Supabase:", error);
+    console.error("Erro detalhado no upload para o Supabase:", error);
     return NextResponse.json(
-      { error: "Erro interno no servidor ao tentar enviar a foto." },
+      { error: "Erro interno: " + (error.message || JSON.stringify(error) || "Desconhecido") },
       { status: 500 }
     );
   }

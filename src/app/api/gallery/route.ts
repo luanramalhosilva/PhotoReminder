@@ -8,8 +8,8 @@ export async function GET() {
     let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
     let supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
     
-    // Remove possíveis aspas duplicadas que o usuário pode ter colocado na Vercel
-    supabaseUrl = supabaseUrl.replace(/^"|"$/g, '').trim();
+    // Remove possíveis aspas duplicadas e o /rest/v1 que o usuário pode ter colocado
+    supabaseUrl = supabaseUrl.replace(/^"|"$/g, '').replace(/\/rest\/v1\/?$/, '').trim();
     supabaseKey = supabaseKey.replace(/^"|"$/g, '').trim();
 
     const supabase = createClient(supabaseUrl, supabaseKey);
