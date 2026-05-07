@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-playfair);
+  
+  --color-wedding-gold: #d4af37;
+  --color-wedding-gold-light: #f3e5ab;
+  --color-wedding-rose: #f4e8e8;
+  --color-wedding-dark: #2c2a2a;
+}
+
+body {
+  background-color: #faf9f8;
+  color: #2c2a2a;
+  -webkit-tap-highlight-color: transparent;
+}
