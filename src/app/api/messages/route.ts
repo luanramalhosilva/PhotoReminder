@@ -3,12 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export async function GET() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
+  const supabase = createClient(supabaseUrl, supabaseKey);
   try {
     const { data: messages, error } = await supabase
       .from('messages')
@@ -27,6 +25,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
+  const supabase = createClient(supabaseUrl, supabaseKey);
   try {
     const body = await request.json();
     const { guest_name, guest_email, guest_image, message } = body;

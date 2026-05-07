@@ -3,12 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export async function GET() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
+  const supabase = createClient(supabaseUrl, supabaseKey);
   try {
     // Buscar fotos ordenadas pelas mais recentes
     const { data: photos, error } = await supabase
