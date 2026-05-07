@@ -1,24 +1,38 @@
 import { NextResponse } from "next/server";
-import { list } from '@vercel/blob';
+import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 export async function GET() {
   try {
-    const { blobs } = await list({
-      limit: 100, // Limite de fotos a mostrar na galeria
-    });
+    // Buscar fotos ordenadas pelas mais recentes
+    const { data: photos, error } = await supabase
+      .from('photos')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-    const photos = blobs.map((blob) => ({
-      id: blob.url,
-      name: blob.pathname,
-      url: blob.url,
-      createdAt: blob.uploadedAt,
+    if (error) {
+      throw error;
+    }
+
+    // Formatando para o formato que o frontend espera
+    const formattedPhotos = photos.map((photo) => ({
+      id: photo.id,
+      name: photo.guest_name,
+      guest_image: photo.guest_image,
+      url: photo.url,
+      createdAt: photo.created_at,
     }));
 
-    return NextResponse.json({ photos });
+    return NextResponse.json({ photos: formattedPhotos });
   } catch (error) {
-    console.error("Erro ao buscar galeria no Vercel Blob:", error);
+    console.error("Erro ao buscar galeria no Supabase:", error);
     return NextResponse.json({ error: "Erro ao buscar galeria" }, { status: 500 });
   }
 }

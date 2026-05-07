@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { Providers } from "@/components/Providers";
-import { BottomNav } from "@/components/BottomNav";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -32,7 +31,6 @@ export default function RootLayout({
       <body suppressHydrationWarning className="min-h-full flex flex-col font-sans bg-stone-50 text-stone-900 pb-16">
         <Providers>
           {children}
-          <BottomNav />
         </Providers>
       </body>
     </html>

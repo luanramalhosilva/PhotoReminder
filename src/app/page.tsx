@@ -1,22 +1,179 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Camera, Image as ImageIcon, UploadCloud, X, CheckCircle2, Heart, AlertCircle, LogOut } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Camera, Image as ImageIcon, UploadCloud, X, CheckCircle2, Heart, AlertCircle, LogOut, Home as HomeIcon, LayoutGrid, MessageSquare, User, Send, Users, Film } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession, signIn, signOut } from "next-auth/react";
 
+// --- Tipos ---
+type Photo = {
+  id: string;
+  name: string;
+  url: string;
+  createdAt: string;
+  guest_image?: string;
+};
+
+type Message = {
+  id: string;
+  guest_name: string;
+  guest_email: string;
+  guest_image: string;
+  message: string;
+  created_at: string;
+};
+
 export default function Home() {
   const { data: session, status } = useSession();
+  
+  // Tab State
+  const [activeTab, setActiveTab] = useState<"home" | "gallery" | "messages" | "profile">("home");
+  
+  // Data State
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(true);
+  
+  // Upload State
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
-  
-  // State para o Modal de Erro
   const [errorModal, setErrorModal] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
   
+  // Messages State
+  const [newMessage, setNewMessage] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- Fetch Data ---
+  const fetchPhotos = async () => {
+    try {
+      const res = await fetch("/api/gallery");
+      const data = await res.json();
+      if (data.photos) setPhotos(data.photos);
+    } catch (error) {
+      console.error("Erro ao carregar fotos:", error);
+    } finally {
+      setLoadingPhotos(false);
+    }
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const res = await fetch("/api/messages");
+      const data = await res.json();
+      if (data.messages) setMessages(data.messages);
+    } catch (error) {
+      console.error("Erro ao carregar mensagens:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (session) {
+      fetchPhotos();
+      fetchMessages();
+    }
+  }, [session]);
+
+  // --- Upload Logic ---
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      setFiles((prev) => [...prev, ...selectedFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpload = async () => {
+    if (files.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadProgress(10);
+    
+    const guestName = session?.user?.name || "Anonimo";
+    const guestEmail = session?.user?.email || "";
+    const guestImage = session?.user?.image || "";
+
+    try {
+      let completed = 0;
+      
+      const uploadPromises = files.map(async (file) => {
+        const urlParams = new URLSearchParams({
+          filename: file.name,
+          guestName,
+          guestEmail,
+          guestImage
+        });
+
+        const response = await fetch(`/api/upload?${urlParams.toString()}`, {
+          method: 'POST',
+          body: file,
+        });
+
+        if (!response.ok) {
+          throw new Error('Falha no upload de um dos arquivos');
+        }
+
+        completed++;
+        setUploadProgress(10 + Math.floor((completed / files.length) * 90));
+      });
+
+      await Promise.all(uploadPromises);
+
+      // Recarrega as fotos para aparecerem no feed/galeria
+      fetchPhotos();
+
+      setIsSuccess(true);
+      setIsUploading(false);
+      setFiles([]);
+      setUploadProgress(0);
+
+    } catch (error) {
+      console.error(error);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setErrorModal({ 
+        show: true, 
+        message: "Ops! Ocorreu um erro na hora de enviar. Verifique sua conexão e tente novamente." 
+      });
+    }
+  };
+
+  // --- Send Message Logic ---
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    
+    setIsSendingMessage(true);
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guest_name: session?.user?.name || "Anonimo",
+          guest_email: session?.user?.email || "",
+          guest_image: session?.user?.image || "",
+          message: newMessage
+        })
+      });
+      
+      if (res.ok) {
+        setNewMessage("");
+        fetchMessages();
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  // --- Renders de Autenticação ---
   if (status === "loading") {
     return <div className="min-h-screen flex items-center justify-center bg-[#faf9f8]">Carregando...</div>;
   }
@@ -51,185 +208,260 @@ export default function Home() {
     );
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files);
-      setFiles((prev) => [...prev, ...selectedFiles]);
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleUpload = async () => {
-    if (files.length === 0) return;
-    
-    setIsUploading(true);
-    setUploadProgress(10);
-    
-    const guestName = session.user?.name || "Anonimo";
-    const guestEmail = session.user?.email || "";
-    const guestImage = session.user?.image || "";
-
-    try {
-      let completed = 0;
-      
-      const uploadPromises = files.map(async (file) => {
-        const urlParams = new URLSearchParams({
-          filename: file.name,
-          guestName,
-          guestEmail,
-          guestImage
-        });
-
-        const response = await fetch(`/api/upload?${urlParams.toString()}`, {
-          method: 'POST',
-          body: file,
-        });
-
-        if (!response.ok) {
-          throw new Error('Falha no upload de um dos arquivos');
-        }
-
-        completed++;
-        setUploadProgress(10 + Math.floor((completed / files.length) * 90));
-      });
-
-      await Promise.all(uploadPromises);
-
-      setIsSuccess(true);
-      setIsUploading(false);
-      setFiles([]);
-      setUploadProgress(0);
-
-    } catch (error) {
-      console.error(error);
-      setIsUploading(false);
-      setUploadProgress(0);
-      setErrorModal({ 
-        show: true, 
-        message: "Ops! Ocorreu um erro na hora de enviar. Verifique sua conexão e tente novamente." 
-      });
-    }
-  };
-
-  if (isSuccess) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-[#faf9f8]">
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center max-w-sm w-full text-center"
-        >
-          <div className="w-20 h-20 bg-wedding-rose rounded-full flex items-center justify-center mb-6">
-            <CheckCircle2 className="w-10 h-10 text-wedding-gold" />
-          </div>
-          <h1 className="font-serif text-3xl font-medium mb-4 text-wedding-dark">Muito Obrigado!</h1>
-          <p className="text-gray-600 mb-8 font-sans">
-            Suas fotos foram enviadas e já estão na galeria.
-          </p>
-          <button
-            onClick={() => {
-              setIsSuccess(false);
-              setUploadProgress(0);
-            }}
-            className="w-full bg-wedding-dark text-white font-medium py-4 rounded-full transition-transform active:scale-95"
-          >
-            Enviar mais fotos
-          </button>
-        </motion.div>
-      </main>
-    );
-  }
-
+  // --- Render Tabs ---
   return (
-    <main className="flex min-h-screen flex-col bg-[#faf9f8] pb-24 relative">
-      {/* Header */}
-      <div className="pt-12 pb-8 px-6 text-center bg-white shadow-sm rounded-b-3xl relative">
-        <button
-          onClick={() => signOut()}
-          className="absolute top-6 right-6 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-          title="Sair da conta"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
-        {session.user?.image ? (
-          <img src={session.user.image} alt={session.user.name || "User"} className="w-16 h-16 rounded-full mx-auto mb-4 border-2 border-wedding-gold/20" />
-        ) : (
-          <Heart className="w-8 h-8 text-wedding-gold mx-auto mb-4" />
-        )}
-        <h1 className="font-serif text-2xl text-wedding-dark font-medium mb-2">
-          Olá, {session.user?.name?.split(" ")[0]}!
-        </h1>
-        <p className="font-sans text-gray-500 max-w-xs mx-auto text-sm">
-          Compartilhe as melhores lembranças com a gente.
-        </p>
-      </div>
-
-      <div className="flex-1 px-6 pt-8 flex flex-col max-w-md mx-auto w-full">
-        {/* Upload Buttons */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 active:scale-95 transition-transform"
-          >
-            <div className="w-12 h-12 rounded-full bg-wedding-rose flex items-center justify-center text-wedding-gold">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <span className="font-medium text-sm text-gray-700">Galeria</span>
-          </button>
+    <main className="flex flex-col h-[100dvh] bg-[#faf9f8] overflow-hidden relative">
+      
+      {/* Esconder a UI principal se estiver na tela de envio (com arquivos selecionados) */}
+      {!files.length && !isSuccess && (
+        <div className="flex-1 overflow-y-auto pb-20">
           
-          <button
-            onClick={() => {
-              if (fileInputRef.current) {
-                fileInputRef.current.setAttribute("capture", "environment");
-                fileInputRef.current.click();
-                setTimeout(() => fileInputRef.current?.removeAttribute("capture"), 1000);
-              }
-            }}
-            className="flex flex-col items-center justify-center gap-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 active:scale-95 transition-transform"
-          >
-            <div className="w-12 h-12 rounded-full bg-wedding-rose flex items-center justify-center text-wedding-gold">
-              <Camera className="w-6 h-6" />
-            </div>
-            <span className="font-medium text-sm text-gray-700">Câmera</span>
-          </button>
-        </div>
-
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          className="hidden"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-        />
-
-        {/* Selected Files Preview */}
-        <AnimatePresence>
-          {files.length > 0 && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex-1"
-            >
-              <h2 className="font-serif text-xl mb-4 text-wedding-dark flex items-center justify-between">
-                <span>Fotos Selecionadas</span>
-                <span className="text-sm font-sans bg-wedding-gold text-white px-3 py-1 rounded-full">
-                  {files.length}
-                </span>
-              </h2>
+          {/* TAB HOME (FEED INSTAGRAM) */}
+          {activeTab === "home" && (
+            <div className="flex flex-col">
+              <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 p-4 border-b border-gray-100 flex justify-center items-center">
+                <h1 className="font-serif text-2xl text-wedding-dark">Nosso Casamento</h1>
+              </div>
               
-              <div className="grid grid-cols-3 gap-2 mb-8">
+              <div className="flex flex-col gap-6 py-4">
+                {loadingPhotos ? (
+                  <div className="text-center p-8 text-gray-400">Carregando feed...</div>
+                ) : [...photos.map(p => ({ type: 'photo' as const, data: p })), ...messages.map(m => ({ type: 'message' as const, data: m }))]
+                    .sort((a, b) => {
+                      const dateA = a.type === 'photo' ? new Date(a.data.createdAt) : new Date(a.data.created_at);
+                      const dateB = b.type === 'photo' ? new Date(b.data.createdAt) : new Date(b.data.created_at);
+                      return dateB.getTime() - dateA.getTime();
+                    }).length === 0 ? (
+                  <div className="text-center p-8 text-gray-400">Nenhuma foto ou mensagem ainda. Seja o primeiro!</div>
+                ) : (
+                  [...photos.map(p => ({ type: 'photo' as const, data: p })), ...messages.map(m => ({ type: 'message' as const, data: m }))]
+                    .sort((a, b) => {
+                      const dateA = a.type === 'photo' ? new Date(a.data.createdAt) : new Date(a.data.created_at);
+                      const dateB = b.type === 'photo' ? new Date(b.data.createdAt) : new Date(b.data.created_at);
+                      return dateB.getTime() - dateA.getTime();
+                    }).map((item, index) => {
+                      
+                      if (item.type === 'photo') {
+                        const photo = item.data;
+                        return (
+                          <motion.div 
+                            key={`photo-${photo.id}`}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-white border-y sm:border border-gray-100"
+                          >
+                            <div className="flex items-center p-3 gap-3">
+                              {photo.guest_image ? (
+                                <img src={photo.guest_image} className="w-8 h-8 rounded-full object-cover" alt={photo.name} />
+                              ) : (
+                                <div className="w-8 h-8 bg-wedding-rose rounded-full flex items-center justify-center text-wedding-gold font-bold text-xs uppercase">
+                                  {photo.name.charAt(0)}
+                                </div>
+                              )}
+                              <span className="font-medium text-sm text-gray-800">{photo.name}</span>
+                            </div>
+                            <div className="aspect-square w-full bg-gray-100 relative">
+                              <img 
+                                src={photo.url} 
+                                alt="Momento do casamento" 
+                                loading="lazy"
+                                className="w-full h-full object-cover" 
+                              />
+                            </div>
+                            <div className="p-3">
+                              <div className="flex gap-4 text-gray-800 mb-2">
+                                <Heart className="w-6 h-6" />
+                                <MessageSquare className="w-6 h-6" onClick={() => setActiveTab("messages")} />
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      } else {
+                        const msg = item.data;
+                        return (
+                          <motion.div 
+                            key={`msg-${msg.id}`}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-white border-y sm:border border-gray-100 p-4 px-5"
+                          >
+                            <div className="flex items-center gap-3 mb-3">
+                              {msg.guest_image ? (
+                                <img src={msg.guest_image} className="w-10 h-10 rounded-full object-cover" alt={msg.guest_name} />
+                              ) : (
+                                <div className="w-10 h-10 bg-wedding-rose rounded-full flex items-center justify-center text-wedding-gold font-bold">
+                                  {msg.guest_name.charAt(0)}
+                                </div>
+                              )}
+                              <div>
+                                <h4 className="font-medium text-gray-900">{msg.guest_name}</h4>
+                                <span className="text-xs text-gray-400">
+                                  {new Date(msg.created_at).toLocaleDateString('pt-BR')}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-gray-800 text-sm leading-relaxed">{msg.message}</p>
+                          </motion.div>
+                        );
+                      }
+                    })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB GALLERY (GRID) */}
+          {activeTab === "gallery" && (
+            <div className="flex flex-col bg-white min-h-full">
+              {/* Fake top tabs exactly like the screenshot */}
+              <div className="sticky top-0 bg-white z-10">
+                <div className="flex justify-around items-center border-b border-gray-200">
+                  <div className="flex-1 py-3 flex justify-center border-b-2 border-[#fc7474]">
+                    <LayoutGrid className="w-6 h-6 text-gray-800" />
+                  </div>
+                  <div className="flex-1 py-3 flex justify-center">
+                    <Film className="w-6 h-6 text-gray-300" />
+                  </div>
+                  <div className="flex-1 py-3 flex justify-center">
+                    <Heart className="w-6 h-6 text-gray-300" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-[2px] p-[2px]">
+                {loadingPhotos ? (
+                  <div className="col-span-3 text-center p-8 text-gray-400">Carregando galeria...</div>
+                ) : (
+                  photos.map((photo) => (
+                    <div key={photo.id} className="aspect-square bg-gray-100">
+                      <img 
+                        src={photo.url} 
+                        alt="Miniatura" 
+                        loading="lazy"
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB MESSAGES (GUESTBOOK) */}
+          {activeTab === "messages" && (
+            <div className="flex flex-col min-h-full">
+              <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 p-4 border-b border-gray-100 flex justify-center items-center shadow-sm">
+                <h1 className="font-serif text-2xl text-wedding-dark">Mensagens</h1>
+              </div>
+
+              <div className="flex-1 p-4 flex flex-col gap-4">
+                {/* Formulário de Nova Mensagem */}
+                <form onSubmit={handleSendMessage} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
+                  <textarea 
+                    placeholder="Deixe um recadinho para os noivos..." 
+                    className="w-full bg-gray-50 rounded-xl p-3 text-sm border-none focus:ring-1 focus:ring-wedding-gold resize-none outline-none"
+                    rows={3}
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                  />
+                  <div className="flex justify-end">
+                    <button 
+                      disabled={isSendingMessage || !newMessage.trim()}
+                      className="bg-[#fc7474] text-white px-5 py-2 rounded-full font-medium text-sm flex items-center gap-2 disabled:opacity-50 transition-opacity"
+                    >
+                      {isSendingMessage ? 'Enviando...' : <><Send className="w-4 h-4"/> Enviar</>}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Lista de Mensagens */}
+                <div className="flex flex-col gap-4 mt-4">
+                  {messages.length === 0 ? (
+                    <div className="text-center p-8 text-gray-400">Seja o primeiro a deixar uma mensagem!</div>
+                  ) : (
+                    messages.map((msg) => (
+                      <div key={msg.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
+                        <div className="flex items-center gap-3 mb-2">
+                          {msg.guest_image ? (
+                            <img src={msg.guest_image} className="w-10 h-10 rounded-full object-cover" alt={msg.guest_name} />
+                          ) : (
+                            <div className="w-10 h-10 bg-wedding-rose rounded-full flex items-center justify-center text-wedding-gold font-bold">
+                              {msg.guest_name.charAt(0)}
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="font-medium text-gray-900">{msg.guest_name}</h4>
+                            <span className="text-xs text-gray-400">
+                              {new Date(msg.created_at).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 text-sm">{msg.message}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB PROFILE */}
+          {activeTab === "profile" && (
+            <div className="flex flex-col items-center justify-center p-6 h-full">
+              <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center w-full max-w-sm">
+                {session.user?.image ? (
+                  <img src={session.user.image} alt={session.user.name || "User"} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-[#fc7474]/20" />
+                ) : (
+                  <div className="w-24 h-24 bg-[#fc7474]/10 rounded-full flex items-center justify-center mb-4">
+                    <User className="w-10 h-10 text-[#fc7474]" />
+                  </div>
+                )}
+                <h2 className="font-serif text-2xl text-gray-900 mb-1">{session.user?.name}</h2>
+                <p className="text-gray-500 text-sm mb-8">{session.user?.email}</p>
+                
+                <button
+                  onClick={() => signOut()}
+                  className="w-full bg-gray-100 text-gray-700 font-medium py-4 rounded-full flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-600 transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                  Sair da Conta
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* Upload Flow Overlays (Secreta as abas e foca no envio) */}
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+      />
+
+      <AnimatePresence>
+        {files.length > 0 && !isSuccess && (
+          <motion.div 
+            initial={{ opacity: 0, y: "100%" }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: "100%" }}
+            className="fixed inset-0 z-50 bg-[#faf9f8] flex flex-col"
+          >
+            <div className="pt-12 pb-4 px-6 flex justify-between items-center bg-white border-b border-gray-100 shadow-sm">
+              <h2 className="font-serif text-xl text-wedding-dark">Fotos Selecionadas ({files.length})</h2>
+              <button onClick={() => setFiles([])} className="p-2 bg-gray-100 rounded-full text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-3 gap-2">
                 {files.map((file, index) => (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    key={`${file.name}-${index}`}
-                    className="relative aspect-square rounded-xl overflow-hidden shadow-sm"
-                  >
+                  <div key={`${file.name}-${index}`} className="relative aspect-square rounded-xl overflow-hidden shadow-sm">
                     <img
                       src={URL.createObjectURL(file)}
                       alt="preview"
@@ -241,24 +473,12 @@ export default function Home() {
                     >
                       <X className="w-4 h-4" />
                     </button>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </div>
 
-      {/* Floating Action Button for Upload */}
-      <AnimatePresence>
-        {files.length > 0 && (
-          <motion.div
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
-            className="fixed bottom-16 left-0 right-0 p-6 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40"
-          >
-            <div className="max-w-md mx-auto">
+            <div className="p-6 bg-white border-t border-gray-100 pb-safe">
               {isUploading ? (
                 <div>
                   <div className="flex justify-between text-sm mb-2 font-medium text-gray-700">
@@ -277,12 +497,42 @@ export default function Home() {
               ) : (
                 <button
                   onClick={handleUpload}
-                  className="w-full bg-wedding-dark text-white font-medium py-4 rounded-full flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg shadow-wedding-dark/20"
+                  className="w-full bg-[#fc7474] text-white font-medium py-4 rounded-full flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg shadow-[#fc7474]/30"
                 >
                   <UploadCloud className="w-5 h-5" />
                   Enviar {files.length} {files.length === 1 ? 'foto' : 'fotos'}
                 </button>
               )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Screen Overlay */}
+      <AnimatePresence>
+        {isSuccess && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-50 bg-[#faf9f8] flex items-center justify-center p-6"
+          >
+            <div className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center max-w-sm w-full text-center">
+              <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6">
+                <CheckCircle2 className="w-10 h-10 text-green-500" />
+              </div>
+              <h1 className="font-serif text-3xl font-medium mb-4 text-gray-900">Sucesso!</h1>
+              <p className="text-gray-600 mb-8 font-sans">
+                Suas fotos já estão na galeria.
+              </p>
+              <button
+                onClick={() => {
+                  setIsSuccess(false);
+                  setActiveTab("home");
+                }}
+                className="w-full bg-[#fc7474] text-white font-medium py-4 rounded-full transition-transform active:scale-95"
+              >
+                Voltar para o Feed
+              </button>
             </div>
           </motion.div>
         )}
@@ -295,7 +545,7 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
@@ -320,6 +570,49 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* BOTTOM NAVIGATION BAR */}
+      {!files.length && !isSuccess && (
+        <nav className="fixed bottom-0 w-full h-[68px] bg-white border-t border-gray-100 z-40 flex justify-around items-center px-2 pb-safe shadow-[0_-2px_20px_rgba(0,0,0,0.03)]">
+          <button onClick={() => setActiveTab("home")} className="p-3 text-gray-400">
+            <HomeIcon className={`w-7 h-7 ${activeTab === 'home' ? 'text-[#fc7474]' : ''}`} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
+          </button>
+          
+          <button onClick={() => setActiveTab("gallery")} className="p-3 text-gray-400">
+            <LayoutGrid className={`w-7 h-7 ${activeTab === 'gallery' ? 'text-[#fc7474]' : ''}`} strokeWidth={activeTab === 'gallery' ? 2.5 : 2} />
+          </button>
+          
+          {/* FAB Central Button */}
+          <div className="relative -top-6">
+            <button 
+              onClick={() => {
+                if (fileInputRef.current) {
+                  // Opcional: focar na câmera direto no celular
+                  // fileInputRef.current.setAttribute("capture", "environment");
+                  fileInputRef.current.click();
+                }
+              }} 
+              className="w-16 h-16 bg-[#fc7474] rounded-full flex items-center justify-center border-[6px] border-[#faf9f8] shadow-lg shadow-[#fc7474]/30 active:scale-95 transition-transform"
+            >
+              <Camera className="w-6 h-6 text-white" />
+            </button>
+          </div>
+          
+          <button onClick={() => setActiveTab("messages")} className="p-3 text-gray-400">
+            <MessageSquare className={`w-7 h-7 ${activeTab === 'messages' ? 'text-[#fc7474]' : ''}`} strokeWidth={activeTab === 'messages' ? 2.5 : 2} />
+          </button>
+          
+          <button onClick={() => setActiveTab("profile")} className="p-3">
+            {session.user?.image ? (
+              <img src={session.user.image} className={`w-8 h-8 rounded-full border-2 ${activeTab === 'profile' ? 'border-[#fc7474]' : 'border-transparent'}`} alt="Perfil" />
+            ) : (
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${activeTab === 'profile' ? 'border-[#fc7474]' : 'border-transparent'}`}>
+                <User className="w-6 h-6 text-gray-400" />
+              </div>
+            )}
+          </button>
+        </nav>
+      )}
     </main>
   );
 }
