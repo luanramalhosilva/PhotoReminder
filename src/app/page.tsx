@@ -116,7 +116,12 @@ export default function Home() {
         });
 
         if (!response.ok) {
-          throw new Error('Falha no upload de um dos arquivos');
+          let errorMsg = 'Falha no upload de um dos arquivos';
+          try {
+            const errorData = await response.json();
+            if (errorData.error) errorMsg = errorData.error;
+          } catch (e) {}
+          throw new Error(errorMsg);
         }
 
         completed++;
@@ -133,13 +138,13 @@ export default function Home() {
       setFiles([]);
       setUploadProgress(0);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setIsUploading(false);
       setUploadProgress(0);
       setErrorModal({ 
         show: true, 
-        message: "Ops! Ocorreu um erro na hora de enviar. Verifique sua conexão e tente novamente." 
+        message: error.message || "Ops! Ocorreu um erro na hora de enviar. Verifique sua conexão e tente novamente." 
       });
     }
   };
@@ -252,7 +257,7 @@ export default function Home() {
                           >
                             <div className="flex items-center p-3 gap-3">
                               {photo.guest_image ? (
-                                <img src={photo.guest_image} className="w-8 h-8 rounded-full object-cover" alt={photo.name} />
+                                <img src={photo.guest_image} className="w-8 h-8 rounded-full object-cover" alt={photo.name} referrerPolicy="no-referrer" />
                               ) : (
                                 <div className="w-8 h-8 bg-wedding-rose rounded-full flex items-center justify-center text-wedding-gold font-bold text-xs uppercase">
                                   {photo.name.charAt(0)}
@@ -287,7 +292,7 @@ export default function Home() {
                           >
                             <div className="flex items-center gap-3 mb-3">
                               {msg.guest_image ? (
-                                <img src={msg.guest_image} className="w-10 h-10 rounded-full object-cover" alt={msg.guest_name} />
+                                <img src={msg.guest_image} className="w-10 h-10 rounded-full object-cover" alt={msg.guest_name} referrerPolicy="no-referrer" />
                               ) : (
                                 <div className="w-10 h-10 bg-wedding-rose rounded-full flex items-center justify-center text-wedding-gold font-bold">
                                   {msg.guest_name.charAt(0)}
@@ -383,7 +388,7 @@ export default function Home() {
                       <div key={msg.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
                         <div className="flex items-center gap-3 mb-2">
                           {msg.guest_image ? (
-                            <img src={msg.guest_image} className="w-10 h-10 rounded-full object-cover" alt={msg.guest_name} />
+                            <img src={msg.guest_image} className="w-10 h-10 rounded-full object-cover" alt={msg.guest_name} referrerPolicy="no-referrer" />
                           ) : (
                             <div className="w-10 h-10 bg-wedding-rose rounded-full flex items-center justify-center text-wedding-gold font-bold">
                               {msg.guest_name.charAt(0)}
@@ -410,7 +415,7 @@ export default function Home() {
             <div className="flex flex-col items-center justify-center p-6 h-full">
               <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center w-full max-w-sm">
                 {session.user?.image ? (
-                  <img src={session.user.image} alt={session.user.name || "User"} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-[#fc7474]/20" />
+                  <img src={session.user.image} alt={session.user.name || "User"} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-[#fc7474]/20" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-24 h-24 bg-[#fc7474]/10 rounded-full flex items-center justify-center mb-4">
                     <User className="w-10 h-10 text-[#fc7474]" />
@@ -604,7 +609,7 @@ export default function Home() {
           
           <button onClick={() => setActiveTab("profile")} className="p-3">
             {session.user?.image ? (
-              <img src={session.user.image} className={`w-8 h-8 rounded-full border-2 ${activeTab === 'profile' ? 'border-[#fc7474]' : 'border-transparent'}`} alt="Perfil" />
+              <img src={session.user.image} className={`w-8 h-8 rounded-full border-2 ${activeTab === 'profile' ? 'border-[#fc7474]' : 'border-transparent'}`} alt="Perfil" referrerPolicy="no-referrer" />
             ) : (
               <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${activeTab === 'profile' ? 'border-[#fc7474]' : 'border-transparent'}`}>
                 <User className="w-6 h-6 text-gray-400" />
