@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Camera, Image as ImageIcon, UploadCloud, X, CheckCircle2, Heart } from "lucide-react";
+import { Camera, Image as ImageIcon, UploadCloud, X, CheckCircle2, Heart, AlertCircle, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn, signOut } from "next-auth/react";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -11,6 +11,10 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
+  
+  // State para o Modal de Erro
+  const [errorModal, setErrorModal] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (status === "loading") {
@@ -101,9 +105,12 @@ export default function Home() {
 
     } catch (error) {
       console.error(error);
-      alert("Ocorreu um erro ao enviar as fotos. Tente novamente.");
       setIsUploading(false);
       setUploadProgress(0);
+      setErrorModal({ 
+        show: true, 
+        message: "Ops! Ocorreu um erro na hora de enviar. Verifique sua conexão e tente novamente." 
+      });
     }
   };
 
@@ -137,9 +144,16 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#faf9f8] pb-24">
+    <main className="flex min-h-screen flex-col bg-[#faf9f8] pb-24 relative">
       {/* Header */}
-      <div className="pt-12 pb-8 px-6 text-center bg-white shadow-sm rounded-b-3xl">
+      <div className="pt-12 pb-8 px-6 text-center bg-white shadow-sm rounded-b-3xl relative">
+        <button
+          onClick={() => signOut()}
+          className="absolute top-6 right-6 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+          title="Sair da conta"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
         {session.user?.image ? (
           <img src={session.user.image} alt={session.user.name || "User"} className="w-16 h-16 rounded-full mx-auto mb-4 border-2 border-wedding-gold/20" />
         ) : (
@@ -242,7 +256,7 @@ export default function Home() {
             initial={{ y: 100 }}
             animate={{ y: 0 }}
             exit={{ y: 100 }}
-            className="fixed bottom-16 left-0 right-0 p-6 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50"
+            className="fixed bottom-16 left-0 right-0 p-6 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40"
           >
             <div className="max-w-md mx-auto">
               {isUploading ? (
@@ -270,6 +284,39 @@ export default function Home() {
                 </button>
               )}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Erro */}
+      <AnimatePresence>
+        {errorModal.show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full text-center flex flex-col items-center"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 text-red-500">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+              <h3 className="font-serif text-2xl font-medium mb-2 text-gray-900">Algo deu errado</h3>
+              <p className="text-gray-500 font-sans mb-6 text-sm">
+                {errorModal.message}
+              </p>
+              <button
+                onClick={() => setErrorModal({ show: false, message: "" })}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium py-3 rounded-full transition-colors active:scale-95"
+              >
+                Entendi, tentar novamente
+              </button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
