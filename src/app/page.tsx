@@ -64,42 +64,44 @@ export default function Home() {
     setIsUploading(true);
     setUploadProgress(10);
     
-    const formData = new FormData();
-    formData.append("guestName", session.user?.name || "Anonimo");
-    formData.append("guestEmail", session.user?.email || "");
-    formData.append("guestImage", session.user?.image || "");
-    
-    files.forEach((file) => {
-      formData.append("files", file);
-    });
+    const guestName = session.user?.name || "Anonimo";
+    const guestEmail = session.user?.email || "";
+    const guestImage = session.user?.image || "";
 
     try {
-      const interval = setInterval(() => {
-        setUploadProgress((prev) => (prev < 90 ? prev + 10 : prev));
-      }, 500);
+      let completed = 0;
+      
+      const uploadPromises = files.map(async (file) => {
+        const urlParams = new URLSearchParams({
+          filename: file.name,
+          guestName,
+          guestEmail,
+          guestImage
+        });
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
+        const response = await fetch(`/api/upload?${urlParams.toString()}`, {
+          method: 'POST',
+          body: file,
+        });
+
+        if (!response.ok) {
+          throw new Error('Falha no upload de um dos arquivos');
+        }
+
+        completed++;
+        setUploadProgress(10 + Math.floor((completed / files.length) * 90));
       });
 
-      clearInterval(interval);
+      await Promise.all(uploadPromises);
 
-      if (res.ok) {
-        setUploadProgress(100);
-        setTimeout(() => {
-          setIsSuccess(true);
-          setIsUploading(false);
-          setFiles([]);
-        }, 500);
-      } else {
-        alert("Ocorreu um erro ao enviar as fotos. Tente novamente.");
-        setIsUploading(false);
-        setUploadProgress(0);
-      }
+      setIsSuccess(true);
+      setIsUploading(false);
+      setFiles([]);
+      setUploadProgress(0);
+
     } catch (error) {
       console.error(error);
-      alert("Ocorreu um erro na conexão. Tente novamente.");
+      alert("Ocorreu um erro ao enviar as fotos. Tente novamente.");
       setIsUploading(false);
       setUploadProgress(0);
     }
