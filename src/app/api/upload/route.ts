@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
-  const supabase = createClient(supabaseUrl, supabaseKey);
   try {
+    let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+    let supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
+    
+    // Remove possíveis aspas duplicadas que o usuário pode ter colocado na Vercel
+    supabaseUrl = supabaseUrl.replace(/^"|"$/g, '').trim();
+    supabaseKey = supabaseKey.replace(/^"|"$/g, '').trim();
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const { searchParams } = new URL(request.url);
     const filename = searchParams.get('filename');
     const guestName = searchParams.get('guestName') || 'Anonimo';
